@@ -88,6 +88,9 @@ fichier d'origine avant de commencer** : les fichiers du fabricant ne sont pas d
 | `media/5HC_version_longue.mp4` | `library/5HC_long.mp4` | Version longue (57 s) |
 | `media/5HC.mp4`, `media/5HC_logo_fond_noir.png` | `mine/` | Fonds d'écran (ordre alphabétique des noms) |
 
+`5HC.mp4` n'a plus de son (le launcher coupe de toute façon le son des fonds et de la veille). L'intro, l'outro et la
+version longue gardent leur musique : c'est elle qui fait l'effet.
+
 ```sh
 adb push media/5HC_intro_20s_a_partager.mp4 /sdcard/Android/data/com.gathin.tvhome/files/media/intro.mp4
 ```
