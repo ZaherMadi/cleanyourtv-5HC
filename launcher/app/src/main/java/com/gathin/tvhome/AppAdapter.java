@@ -269,6 +269,13 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         Set<String> added = new HashSet<>(LibraryApps.load(ctx));
         added.addAll(libraryPreload);
         Set<String> removed = LibraryApps.loadRemoved(ctx);
+        // Apps installed by the owner (Play Store and the like) show on Home even without a TV entry point.
+        for (ResolveInfo ri : pm.queryIntentActivities(
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)) {
+            if (ri.activityInfo == null || ri.activityInfo.applicationInfo == null) continue;
+            int flags = ri.activityInfo.applicationInfo.flags;
+            if ((flags & android.content.pm.ApplicationInfo.FLAG_SYSTEM) == 0) added.add(ri.activityInfo.packageName);
+        }
         if (!added.isEmpty()) {
             Set<String> seen = new HashSet<>(tvPackages);
             for (ResolveInfo ri : pm.queryIntentActivities(
@@ -485,7 +492,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         h.card.setScaleX(focused && animations ? focusScale() : 1f);
         h.card.setScaleY(focused && animations ? focusScale() : 1f);
         h.card.setTranslationY(focused && advancedEffects && !dockKind ? -4f * ctx.getResources().getDisplayMetrics().density : 0f);
-        h.card.setTranslationZ(focused && advancedEffects ? 8f * ctx.getResources().getDisplayMetrics().density : 0f);
+        h.card.setTranslationZ(focused ? 30f * ctx.getResources().getDisplayMetrics().density : 0f);
         h.banner.setScaleX(focused && advancedEffects ? 1.035f : 1f);
         h.banner.setScaleY(focused && advancedEffects ? 1.035f : 1f);
         // A fully opaque banner covers the whole card (centerCrop), so the card's own fill under it is drawn for
@@ -568,6 +575,12 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     int appCount() { return items.size(); }
+
+    /** Home V2 reads the same list. */
+    Entry entryAt(int position) { return items.get(position); }
+
+    /** Opens an entry as its tile would (Home V2). */
+    void open(Entry e) { launch(e); }
 
     boolean isLibraryAt(int position) { return showLibrary && position == items.size(); }
 
@@ -895,6 +908,27 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     /** Corner radius for a tile of this width: 16dp at the design width, proportionally less when smaller. */
+    /** A deep shade of the tile's own colours, used for the focused tile's shadow. */
+    static int tint(ImageView banner, ImageView icon) {
+        try {
+            android.graphics.drawable.Drawable d = banner != null && banner.getDrawable() != null ? banner.getDrawable()
+                    : icon != null ? icon.getDrawable() : null;
+            if (d == null) return 0xFF000000;
+            android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888);
+            android.graphics.Canvas canvas = new android.graphics.Canvas(bmp);
+            android.graphics.Rect old = d.copyBounds();
+            d.setBounds(0, 0, 1, 1);
+            d.draw(canvas);
+            d.setBounds(old);
+            int c = bmp.getPixel(0, 0);
+            bmp.recycle();
+            int r = (int) (((c >> 16) & 0xFF) * 0.55f), g = (int) (((c >> 8) & 0xFF) * 0.55f), b = (int) ((c & 0xFF) * 0.55f);
+            return 0xFF000000 | (r << 16) | (g << 8) | b;
+        } catch (RuntimeException e) {
+            return 0xFF000000;
+        }
+    }
+
     static float cornerRadius(int tileWidthPx, float density) {
         return 16f * density * Math.min(1f, tileWidthPx / (DESIGN_W_DP * density));
     }
@@ -940,8 +974,45 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 }
             });
             card.setClipToOutline(true);
+            // Layered look: a soft shadow at rest, a lit rim and a deep coloured shadow when focused, and a sunken
+            // inner shadow while OK is held.
+            card.setElevation(5f * density);
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                card.setOutlineAmbientShadowColor(0xFF000000);
+                card.setOutlineSpotShadowColor(0xFF000000);
+            }
+            final android.graphics.drawable.GradientDrawable rimRest = new android.graphics.drawable.GradientDrawable();
+            rimRest.setStroke(Math.max(1, Math.round(density)), 0x2EFFFFFF);
+            rimRest.setColor(0x33000000); // rest tiles are slightly dimmed; focus fades the dimming out
+            final android.graphics.drawable.GradientDrawable rimFocus = new android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x33FFFFFF, 0x1AFFFFFF});
+            rimFocus.setStroke(Math.max(2, Math.round(2 * density)), 0xD9FFFFFF);
+            final android.graphics.drawable.GradientDrawable inset = new android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM, new int[]{0x66321E5D, 0x00000000, 0x4D000000});
+            inset.setStroke(Math.max(1, Math.round(density)), 0x66FFFFFF);
+            android.graphics.drawable.StateListDrawable overlay = new android.graphics.drawable.StateListDrawable();
+            overlay.addState(new int[]{android.R.attr.state_pressed}, inset);
+            overlay.addState(new int[]{android.R.attr.state_focused}, rimFocus);
+            overlay.addState(new int[]{}, rimRest);
+            overlay.setEnterFadeDuration(220);
+            overlay.setExitFadeDuration(200);
+            card.setForeground(overlay);
+            card.addOnLayoutChangeListener((view, l, t, r, bt, ol, ot, or2, ob) -> {
+                float rad = cornerRadius(r - l, density);
+                rimRest.setCornerRadius(rad);
+                rimFocus.setCornerRadius(rad);
+                inset.setCornerRadius(rad);
+            });
 
             card.setOnKeyListener((view, keyCode, event) -> {
+                if ((keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) && animations) {
+                    if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                        view.animate().translationZ(2f * density).scaleX(1.06f).scaleY(1.06f).setDuration(90).start();
+                    } else if (event.getAction() == KeyEvent.ACTION_UP) {
+                        view.animate().translationZ(view.hasFocus() ? 22f * density : 0f).scaleX(1.12f).scaleY(1.12f).setDuration(140).start();
+                    }
+                    return false;
+                }
                 if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
                 if (keyCode != KeyEvent.KEYCODE_DPAD_UP && keyCode != KeyEvent.KEYCODE_DPAD_DOWN
                         && keyCode != KeyEvent.KEYCODE_DPAD_LEFT && keyCode != KeyEvent.KEYCODE_DPAD_RIGHT) return false;
@@ -969,7 +1040,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     // frames than it saves. The name just appears instead of fading.
                     view.animate().scaleX(s).scaleY(s)
                             .translationY(focused && advancedEffects && !inDock ? -4f * density : 0f)
-                            .translationZ(focused && advancedEffects ? 8f * density : 0f)
+                            .translationZ(focused ? 22f * density : 0f)
                             .setDuration(focused ? Motion.REDUCED_MS : 60)
                             .setInterpolator(new DecelerateInterpolator())
                             .start();
@@ -981,10 +1052,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 } else {
                     view.animate().scaleX(s).scaleY(s)
                             .translationY(focused && advancedEffects && !inDock ? -4f * density : 0f)
-                            .translationZ(focused && advancedEffects ? 8f * density : 0f)
+                            .translationZ(focused ? 22f * density : 0f)
                             .setDuration(advancedEffects ? (focused ? 220 : 170) : (focused ? 260 : 180))
-                            .setInterpolator(focused && !overshoot ? new DecelerateInterpolator(1.5f)
-                                    : new OvershootInterpolator(focused ? (advancedEffects ? 0.7f : 1.6f) : 0f))
+                                  .setInterpolator(new DecelerateInterpolator(1.5f))
                             .withLayer().start();
                     if (advancedEffects) {
                         banner.animate().scaleX(focused ? 1.035f : 1f).scaleY(focused ? 1.035f : 1f)
@@ -994,6 +1064,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                             .translationY(focused ? density * 4f : -density * 6f)
                             .setDuration(220).start();
                 }
+                
                 int pos = getBindingAdapterPosition();
                 if (focused && listener != null && pos != RecyclerView.NO_POSITION) {
                     listener.onTileFocused(pos, view);

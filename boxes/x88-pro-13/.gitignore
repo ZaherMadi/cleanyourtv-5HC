@@ -1,0 +1,15 @@
+# Le runner et ses journaux : les fichiers .job et .out peuvent contenir tes clés API et l'IP de ta box.
+queue/
+out/
+shots/
+# Outils téléchargés par les scripts
+platform-tools/
+platform-tools-latest-windows.zip
+commandlinetools-win.zip
+cmdtools-tmp/
+# Sauvegardes et preuves de TA box (numéro de série, adresse MAC, fichiers du fabricant)
+backup/
+apks/
+bootvideo/
+build/
+tvhome.apk

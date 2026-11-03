@@ -1,0 +1,12 @@
+# RETOUR ARRIERE du bouton eteindre : remet la touche POWER d'origine dans le fichier de touches de la telecommande.
+# Prerequis : restore\ffa90030_pwm.kl.orig (md5 adc9b7c388e7204b3863838d8d3df385). Redemarrer la box ensuite.
+@t60 push /data/local/tmp/kl.orig restore/ffa90030_pwm.kl.orig
+@t30 shell su 0 mount -o remount,rw /vendor
+@t30 shell su 0 sh -c 'echo 0 > /sys/fs/ext4/dm-3/reserved_clusters'
+@t30 shell su 0 dd if=/data/local/tmp/kl.orig of=/vendor/usr/keylayout/ffa90030_pwm.kl bs=4096
+@t30 shell su 0 sync
+@t30 shell su 0 sh -c 'echo 751 > /sys/fs/ext4/dm-3/reserved_clusters'
+@t30 shell su 0 mount -o remount,ro /vendor
+@t30 shell su 0 md5sum /vendor/usr/keylayout/ffa90030_pwm.kl
+@t30 shell su 0 rm -f /data/local/tmp/kl.orig
+# attendu : adc9b7c388e7204b3863838d8d3df385

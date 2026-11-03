@@ -35,6 +35,7 @@ public final class LauncherSettingsActivity extends Activity {
     private static final String[] CLOCK_FORMATS = {"system", "12", "24"};
     private final TextView[] clockChoices = new TextView[CLOCK_FORMATS.length];
     private TextView wallpaperChoice;
+    private TextView homeStyleChoice;
     private TextView animationsChoice;
     private TextView advancedChoice;
     private TextView followThemeChoice;
@@ -123,6 +124,21 @@ public final class LauncherSettingsActivity extends Activity {
             reverseRow(dockChoices);
             reverseRow(clockChoices);
         }
+        homeStyleChoice = findViewById(R.id.homeStyleChoice);
+        final float corner = 20 * getResources().getDisplayMetrics().density;
+        View themeCard = findViewById(R.id.themeCard);
+        themeCard.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, android.graphics.Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), corner);
+            }
+        });
+        themeCard.setClipToOutline(true);
+        // The same picture chooser as on first start; picking there comes straight back here.
+        homeStyleChoice.setOnClickListener(v -> {
+            startActivity(new Intent(this, HomeChooserActivity.class));
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+        });
         wallpaperChoice = findViewById(R.id.wallpaperChoice);
         wallpaperChoice.setOnClickListener(v -> showWallpaperPicker());
         animationsChoice = findViewById(R.id.animationsChoice);
@@ -172,9 +188,10 @@ public final class LauncherSettingsActivity extends Activity {
                 open(new Intent(this, HomeSettingsActivity.class)));
         findViewById(R.id.tvSettingsChoice).setOnClickListener(v ->
                 open(SystemSettings.intent(this, Settings.ACTION_SETTINGS)));
+        focusZoom(findViewById(android.R.id.content));
         refresh();
         if (config.launcherSettingsButton) reorderChoice.requestFocus();
-        else columnChoices[Math.max(0, Math.min(columns - 4, 3))].requestFocus();
+        else homeStyleChoice.requestFocus();
     }
 
     private void reverseRow(TextView[] views) {
@@ -279,6 +296,24 @@ public final class LauncherSettingsActivity extends Activity {
      * A choice was saved. Home rebuilds when it next resumes because the change count moved, whether these
      * settings are left with Back or with the remote's Home button (which cancels the activity result).
      */
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Back from the theme chooser: show the new choice. The chooser counted the change itself.
+        if (homeStyleChoice != null) refresh();
+    }
+
+    /** Every row and choice grows a little when focused, without overshoot. */
+    private static void focusZoom(View v) {
+        if (v instanceof android.view.ViewGroup) {
+            android.view.ViewGroup g = (android.view.ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) focusZoom(g.getChildAt(i));
+        } else if (v.isFocusable() && v.getOnFocusChangeListener() == null) {
+            v.setOnFocusChangeListener((view, f) -> view.animate().scaleX(f ? 1.03f : 1f).scaleY(f ? 1.06f : 1f)
+                    .setDuration(160).setInterpolator(new android.view.animation.DecelerateInterpolator()).start());
+        }
+    }
+
     private void changed() {
         setResult(RESULT_OK);
         choices.edit().putLong(Config.SETTINGS_REVISION_KEY,
@@ -305,6 +340,10 @@ public final class LauncherSettingsActivity extends Activity {
         for (int i = 0; i < clockChoices.length; i++) {
             clockChoices[i].setSelected(CLOCK_FORMATS[i].equals(clockFormat));
         }
+        boolean v2 = HomeV2.enabled(this);
+        ((android.widget.ImageView) findViewById(R.id.themePreview))
+                .setImageResource(v2 ? R.drawable.preview_5hc : R.drawable.preview_cleanyourtv);
+        ((TextView) findViewById(R.id.themeCaption)).setText(v2 ? R.string.home_style_v2 : R.string.home_style_v1);
         animationsChoice.setText(getString(R.string.animations_state,
                 getString(animations ? R.string.on : R.string.off)));
         advancedChoice.setText(getString(R.string.advanced_effects_state,

@@ -372,6 +372,14 @@
                     android:drawableStart="@drawable/ic_apps_pill"
                     android:nextFocusDown="@+id/grid" />
 
+                <!-- Launcher settings (home style CleanYourTV / 5HC and the rest), as the profile icon of the 5HC home. -->
+                <TextView
+                    android:id="@+id/btnProfile"
+                    style="@style/TopButtonIcon"
+                    android:contentDescription="@string/v2_profile"
+                    android:drawableStart="@drawable/ic_tv_v2"
+                    android:nextFocusDown="@+id/grid" />
+
                 <TextView
                     android:id="@+id/btnSettings"
                     style="@style/TopButton"

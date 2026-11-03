@@ -1,3 +1,13 @@
+> **Fork 5HC.** Ce dépôt est un fork de [Gathin23/cleanyourtv](https://github.com/Gathin23/cleanyourtv). Il ajoute un
+> accueil à la Google TV, des volets YouTube, films et séries et sport, la météo, et une intro, une outro et une veille
+> vidéo : voir **[LISEZMOI-5HC.md](LISEZMOI-5HC.md)** (en français). Contrairement à l'original, ce launcher a la permission
+> Internet, utilisée seulement pour ces volets quand tu as renseigné tes propres clés API. Tout le reste de cette page
+> est le README d'origine.
+>
+> *This is a fork of Gathin23/cleanyourtv with a Google TV style home, online rows and 5HC branding; see
+> [LISEZMOI-5HC.md](LISEZMOI-5HC.md). Unlike upstream, its launcher uses the Internet permission, only for those rows and
+> only with your own API keys. The rest of this page is the upstream README.*
+
 <p align="center">
   <a href="https://cleanyour.tv"><img src="https://raw.githubusercontent.com/Gathin23/cleanyourtv/main/docs/banner.png" alt="CleanYourTV. Your TV, minus the ads. Strip the bloatware from any Android TV or Google TV over Wi-Fi and replace the ad-filled home screen with a clean launcher that looks like an Apple TV. No root, no cable, nothing uninstalled, and a one-line restore." width="800"></a>
 </p>

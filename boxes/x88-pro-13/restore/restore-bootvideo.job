@@ -1,0 +1,12 @@
+# RETOUR ARRIERE de la video de demarrage : remet la video d'origine du fabricant.
+# Prerequis : le fichier bootvideo\stock-bootanimation.ts (md5 248b99e6dfb36b3e617d41fee3aba824) doit exister.
+@t120 push /data/local/tmp/stock-bootanimation.ts bootvideo/stock-bootanimation.ts
+@t30 shell su 0 mount -o remount,rw /product
+@t30 shell su 0 sh -c 'echo 0 > /sys/fs/ext4/dm-7/reserved_clusters'
+@t60 shell su 0 dd if=/data/local/tmp/stock-bootanimation.ts of=/product/media/bootanimation.ts bs=1048576
+@t30 shell su 0 sync
+@t30 shell su 0 sh -c 'echo 4096 > /sys/fs/ext4/dm-7/reserved_clusters'
+@t30 shell su 0 mount -o remount,ro /product
+@t30 shell su 0 md5sum /product/media/bootanimation.ts
+@t30 shell su 0 rm -f /data/local/tmp/stock-bootanimation.ts
+# attendu : 248b99e6dfb36b3e617d41fee3aba824

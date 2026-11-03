@@ -31,6 +31,8 @@ public class InputKeyService extends AccessibilityService {
     private boolean consumeVolumeKeys;
     /** Stops key filtering while a game controller is connected; null unless gamepad_passthrough and key_filter. */
     private GamepadPassthrough gamepads;
+    /** The power button's outro video, then sleep (media/outro.mp4). */
+    private PowerOutro powerOutro;
 
     @Override
     protected void onServiceConnected() {
@@ -41,6 +43,7 @@ public class InputKeyService extends AccessibilityService {
         repairRecord = config.restoreKeyServices;
         if (repairRecord) ServiceRepair.connected(this, getClass());
         inputKeycodes = config.inputKeycodes;
+        if (powerOutro == null) powerOutro = new PowerOutro(this);
         consumeVolumeKeys = config.consumeVolumeKeys;
         appKeys = RemoteKeys.parseAppKeys(config.appKeys);
         appScancodes = RemoteKeys.parseAppScancodes(config.appKeys);
@@ -62,6 +65,18 @@ public class InputKeyService extends AccessibilityService {
 
     @Override
     protected boolean onKeyEvent(KeyEvent event) {
+        // The IR key layout sends the remote's power button as STB_POWER (Android handles POWER before any app
+        // can see it). Both the press and the release are swallowed so nothing else reacts to it.
+        if (event.getKeyCode() == KeyEvent.KEYCODE_STB_POWER) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                try {
+                    if (powerOutro != null) powerOutro.onPowerPress();
+                } catch (RuntimeException e) {
+                    performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);   // the button must always switch the TV off
+                }
+            }
+            return true;
+        }
         if (consumeVolumeKeys && VolumeKeys.handle(this, event)) return true;
         // A scancode entry is more specific than any keycode, so it goes first.
         if (RemoteKeys.handle(this, event, appScancodes.get(event.getScanCode()),
@@ -89,6 +104,7 @@ public class InputKeyService extends AccessibilityService {
     @Override
     public void onDestroy() {
         RemoteKeys.release(this);
+        if (powerOutro != null) powerOutro.release();
         if (gamepads != null) gamepads.stop();
         if (consumeVolumeKeys) VolumeKeys.stop();
         super.onDestroy();

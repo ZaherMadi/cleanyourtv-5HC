@@ -20,6 +20,15 @@ final class SystemSettings {
         ResolveInfo resolved = pm.resolveActivity(standard, PackageManager.MATCH_DEFAULT_ONLY);
         // Fire OS resolves the standard actions to a CTS compliance stub that opens nothing;
         // treat it as missing so the vendor fallback runs.
+        // This firmware answers the standard actions with the phone-style Settings app, which a remote can
+        // only scroll, not navigate: send them to the AOSP TV settings instead when it is installed.
+        if (resolved != null && "com.android.settings".equals(resolved.activityInfo.packageName)) {
+            try {
+                pm.getPackageInfo(AOSP_TV_SETTINGS.getPackageName(), 0);
+                return new Intent().setComponent(AOSP_TV_SETTINGS);
+            } catch (PackageManager.NameNotFoundException ignored) {
+            }
+        }
         if (resolved != null && !resolved.activityInfo.name.contains("CTSDummy")) return standard;
         Intent vendor = vendorIntent(context);
         if (vendor != null) return vendor;

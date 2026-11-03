@@ -1,0 +1,21 @@
+# RESTAURATION : remet en etat toutes les apps desactivees le 2026-11-02.
+# Utilisation : copier ce fichier dans queue\ (ou me demander de le lancer).
+@t30 shell pm enable --user 0 com.francis.wifitest
+@t30 shell pm enable --user 0 com.rockchip.devicetest
+@t30 shell pm enable --user 0 com.cghs.stresstest
+@t30 shell pm enable --user 0 com.example.changeled
+@t30 shell pm enable --user 0 com.charon.rocketfly
+@t30 shell pm enable --user 0 com.android.box.screensaver
+@t30 shell pm enable --user 0 com.netflix.mediaclient
+@t30 shell pm enable --user 0 com.disney.disneyplus
+@t30 shell pm enable --user 0 com.ionitech.airscreen
+@t30 shell pm enable --user 0 com.google.android.youtube.tv
+@t30 shell pm enable --user 0 com.example.staticistall2
+@t30 shell pm enable --user 0 com.chihihgs.launcher.upgrade
+@t30 shell pm enable --user 0 com.chihihgs.store
+@t30 shell pm enable --user 0 com.abupdate.fota_demo_iot
+@t30 shell pm enable --user 0 android.rockchip.update.service
+# Pour re-activer AUSSI le demon (deconseille) : restaurer l'original depuis apks\gsdnode_android.bin
+# --- Launcher : revenir a l'ancien launcher du fabricant ---
+@t30 shell pm enable --user 0 com.chihihgs.launcher
+@t30 shell cmd package set-home-activity --user 0 com.chihihgs.launcher/.ui.activity.MainActivity

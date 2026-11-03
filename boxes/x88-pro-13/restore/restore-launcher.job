@@ -1,0 +1,7 @@
+# RETOUR ARRIERE DU LAUNCHER : remet l'ancien launcher du fabricant comme accueil.
+@t30 shell pm enable --user 0 com.chihihgs.launcher
+@t30 shell cmd package set-home-activity --user 0 com.chihihgs.launcher/.ui.activity.MainActivity
+@t30 shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME
+# Pour retirer aussi le launcher CleanYourTV (optionnel) :
+# @t30 shell pm uninstall com.gathin.tvhome
+# Securite : si l'ecran reste noir, l'accueil de secours (com.android.tv.settings/.system.FallbackHome) reste actif.

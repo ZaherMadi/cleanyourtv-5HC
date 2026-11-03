@@ -53,6 +53,7 @@ import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
+import android.graphics.Typeface;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
@@ -144,6 +145,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private RecyclerView grid;
     private FrameLayout root;
     private WallpaperPlayer wallpaperPlayer;
+    private AllAppsPanel allApps;
+    private DockDecoration dockDecoration;
+    private boolean dockTranslucent;
+    private int dockOpacityPct;
+    /** The owner's pictures and videos behind Home (media folder); null when there are none. */
+    private MediaBackground mediaBackground;
+    /** Home V2 (Google TV layout) over this activity's views, or null for the classic Home. */
+    private HomeV2 homeV2;
+    /** Mode simple: YouTube in the dock's place, Right past the last app (null in the other mode). */
+    private ContentDock ytDock;
+    /** Mode simple: the weather next to the clock (hidden until known). */
+    private TextView weatherV1;
     private GlassView glass;
     private View ambient;
     private TextView heroName;
@@ -454,6 +467,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        HomeV2.applyExtra(this, getIntent());
+        YouTubeFeed.applyExtra(this, getIntent());
+        Keys.applyExtra(this, getIntent());
         setContentView(R.layout.activity_main);
         density = getResources().getDisplayMetrics().density;
         // config.xml, overlaid by config.json from a pushed theme (see Config and tools/theme.sh).
@@ -506,9 +522,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // the theme's background, so launch looks the same.
         getWindow().setBackgroundDrawable(null);
         wallpaperPlayer = new WallpaperPlayer(this, root, cfg);
+        mediaBackground = MediaBackground.create(this, root);
+        if (mediaBackground != null) mediaBackground.setColorListener(rgb -> {
+            if (dockDecoration != null && grid != null) {
+                dockDecoration.setTint(rgb, cinematic, cfg.dockOpacity);
+                grid.invalidate();
+            }
+        });
+        allApps = new AllAppsPanel(this, root, new HashSet<>(cfg.hiddenApps), animations && !reducedMotion);
         sky = findViewById(R.id.sky);
         sky.setIntensity(cfg.skyIntensity);
         glass = findViewById(R.id.glass);
+        // No travelling highlight between tiles: each tile only grows / lights up by itself.
+        glass.setVisibility(View.GONE);
         glass.setStyle(cfg.glassStyle);
         if (festive) glass.setAccent(festival.accentColor());
         ambient = findViewById(R.id.ambient);
@@ -609,6 +635,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         libraryExcludedApps = new HashSet<>(cfg.libraryExcludedApps);
 
         grid = findViewById(R.id.grid);
+        for (android.view.ViewParent vp = grid.getParent(); vp instanceof ViewGroup; vp = vp.getParent()) ((ViewGroup) vp).setClipChildren(false);
         rtlAppGrid = getResources().getBoolean(R.bool.rtl_app_grid);
         // Mirror only the app grid; the header and other locales keep their own layouts.
         // single_row: one span laid out sideways, so the same adapter, glass and dock band serve a scrolling row.
@@ -681,7 +708,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             public void onChildViewDetachedFromWindow(@NonNull View v) {
             }
         });
-        if (dockRow) grid.addItemDecoration(new DockDecoration(COLUMNS, density, cinematic, cfg.alwaysShowNames, cfg.dockOpacity, cfg.dockGlass, cfg.dockEvenPadding, cfg.dockBand,
+        if (dockRow) grid.addItemDecoration(dockDecoration = new DockDecoration(COLUMNS, density, cinematic, cfg.alwaysShowNames, cfg.dockOpacity, cfg.dockGlass, cfg.dockEvenPadding, cfg.dockBand,
                 singleRow, cfg.dockBandAll));
         if (cfg.fadeRows) TopFade.attach(grid, 48 * density);
         // Reduced motion: the tiles are simply there, with no entrance (reloadApps skips it there too).
@@ -839,8 +866,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         showInputsMenuRow = cfg.showInputsPill;
         btnLibraryTop = findViewById(R.id.btnLibraryTop);
         btnLibraryTop.setOnClickListener(v -> {
-            onLibraryRequested();
-            libraryFromTopBar = true;   // closing it goes back to this button, not to the pill after the last row
+            if (adapter.appCount() > COLUMNS) setDockExpanded(true);
+            focusTile(Math.min(COLUMNS, Math.max(0, adapter.appCount() - 1)));
         });
         btnLibraryTop.setVisibility(cfg.libraryButton && cfg.appLibrary ? View.VISIBLE : View.GONE);
         addTopBarApps(cfg.topBarApps, cfg.launchActions);
@@ -913,9 +940,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnSettings.setOnKeyListener(pillKeys);
         btnReorder.setOnKeyListener(pillKeys);
         btnLibraryTop.setOnKeyListener(pillKeys);
+        View btnProfile = findViewById(R.id.btnProfile);
+        btnProfile.setOnKeyListener(pillKeys);
+        btnProfile.setOnClickListener(v -> startActivityForResult(
+                new Intent(this, LauncherSettingsActivity.class), LAUNCHER_SETTINGS_REQUEST));
         for (View button : topAppButtons) button.setOnKeyListener(pillKeys);
         if (advancedEffects) {
-            List<View> pills = new ArrayList<>(Arrays.asList(btnInputs, btnWifi, btnVpn, btnReorder, btnLibraryTop, btnSettings));
+            List<View> pills = new ArrayList<>(Arrays.asList(btnInputs, btnWifi, btnVpn, btnReorder, btnLibraryTop, btnProfile, btnSettings));
             pills.addAll(topAppButtons);
             for (View button : pills) {
                 button.setOnFocusChangeListener((view, focused) -> view.animate()
@@ -964,6 +995,39 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Not after recreate(): the launch intent survives it and would open the settings again.
         if (savedInstanceState == null && !openLauncherSettingsIfAsked(getIntent()) && !openLibraryIfAsked(getIntent())) {
             openInputsIfAsked(getIntent());
+        }
+        if (HomeV2.enabled(this)) {
+            homeV2 = new HomeV2(this, findViewById(R.id.root), adapter, new HomeV2.Actions() {
+                @Override public void openSettings() { findViewById(R.id.btnSettings).performClick(); }
+                @Override public void openProfile() {
+                    startActivityForResult(new Intent(MainActivity.this, LauncherSettingsActivity.class), LAUNCHER_SETTINGS_REQUEST);
+                }
+                @Override public void openSearch() { onLibraryRequested(); }
+            });
+        } else if (dockDecoration != null && !singleRow) {
+            ytDock = new ContentDock(this, root, grid, dockDecoration, heroName, new ContentDock.Host() {
+                @Override public void focusApp(int position) { focusTile(position); }
+                @Override public void hideAppHero() { hideHero(); }
+                @Override public int lastDockApp() {
+                    return Math.max(0, Math.min(Math.min(adapter.appCount(), adapter.dockFilled()), COLUMNS) - 1);
+                }
+            });
+            // Weather icon and temperature between the clock and the date.
+            View divider = findViewById(R.id.clockDivider);
+            if (divider != null && divider.getParent() instanceof LinearLayout) {
+                LinearLayout clockRow = (LinearLayout) divider.getParent();
+                weatherV1 = new TextView(this);
+                weatherV1.setTextColor(0xE6FFFFFF);
+                weatherV1.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
+                weatherV1.setTypeface(Typeface.create(getString(R.string.font_light), Typeface.NORMAL));
+                weatherV1.setIncludeFontPadding(false);
+                weatherV1.setVisibility(View.GONE);
+                LinearLayout.LayoutParams wl = new LinearLayout.LayoutParams(-2, -2);
+                wl.gravity = Gravity.BOTTOM;
+                wl.leftMargin = Math.round(18 * density);
+                wl.bottomMargin = Math.round(7 * density);
+                clockRow.addView(weatherV1, clockRow.indexOfChild(divider), wl);
+            }
         }
     }
 
@@ -1047,11 +1111,27 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (Keys.applyExtra(this, intent)) {
+            if (homeV2 != null) homeV2.reloadYouTube();
+            if (ytDock != null) ytDock.reload();
+            if (weatherV1 != null) WeatherFeed.into(weatherV1);
+        }
+        if (intent != null && intent.hasExtra(YouTubeFeed.KEY_PREF)) {
+            YouTubeFeed.applyExtra(this, intent);
+            if (homeV2 != null) homeV2.reloadYouTube();
+            if (ytDock != null) ytDock.reload();
+        }
+        if (HomeV2.applyExtra(this, intent)) {
+            recreate();
+            return;
+        }
         if (openLauncherSettingsIfAsked(intent)) return;
         if (openLibraryIfAsked(intent)) return;
         if (openInputsIfAsked(intent)) return;
+        if (ytDock != null) ytDock.hideNow();
         if (intent == null || !intent.hasCategory(Intent.CATEGORY_HOME)) return;
         if (gameDay != null && !stopped) gameDay.read();
+        if (ytDock != null) ytDock.hideNow();
         grid.scrollToPosition(0);
         lastFocused = 0;
         lastFocusedKey = adapter.getItemCount() > 0 ? adapter.keyAt(0) : null;
@@ -1132,7 +1212,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         if (gameDay != null) gameDay.start();
         sky.update();
         wallpaperPlayer.start();
+        if (mediaBackground != null && homeV2 == null) mediaBackground.start();
         handler.postDelayed(minuteTick, MINUTE_MS);
+        boolean intro = maybePlayIntro();
+        // First start: the home chooser, once the intro (if any) is over.
+        if (!intro && HomeChooserActivity.needed(this)) {
+            startActivity(new Intent(this, HomeChooserActivity.class));
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+        }
+        if (homeV2 != null) homeV2.onResume();
+        if (ytDock != null) ytDock.onResume();
+        if (weatherV1 != null) WeatherFeed.into(weatherV1);
         if (festive && lamp != null) {
             lamp.start();
             LocalDate today = LocalDate.now();
@@ -1206,6 +1296,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             heroArt.setAlpha(0f);
         }
         if (rebuild) reloadTiles();
+        if (homeV2 != null) homeV2.refresh();
         if (animate && entrance && animations && !reducedMotion) {
             grid.scheduleLayoutAnimation();
             // A rebuild redraws the grid anyway; without one the entrance needs a draw to start.
@@ -1298,6 +1389,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onPause() {
         super.onPause();
+        if (allApps != null) allApps.hide();
+        if (dockExpand != 0f || dockWide != 0f) {
+            if (dockExpandAnimator != null) dockExpandAnimator.cancel();
+            if (dockWideAnimator != null) dockWideAnimator.cancel();
+            dockWide = 0f;
+            dockDecoration.setWide(0f);
+            applyDockExpand(0f);
+        }
         resumed = false;
         // No UP reaches a paused Home, so a vendor-key hold it saw go down would still open its app later.
         // Only Home's own share is dropped: a key service that saw the same DOWN keeps its hold.
@@ -1306,6 +1405,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root.removeCallbacks(showIdleClock);
         endReorder();   // Home or another app while reordering keeps the order so far
         wallpaperPlayer.stop();
+        if (mediaBackground != null) mediaBackground.stop();
         stopAmbientAnimation();
         hero.animate().cancel();
         ambient.animate().cancel();
@@ -1354,6 +1454,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         heroArtCache.clear();
         heroArtKey = null;
         wallpaperPlayer.releaseForMemoryPressure();
+        if (mediaBackground != null) mediaBackground.releaseForMemoryPressure();
         tileRefresh.invalidate();
     }
 
@@ -1378,6 +1479,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         unregisterReceiver(packageReceiver);
         if (openOnStartOnWake) unregisterReceiver(wakeReceiver);
         wallpaperPlayer.close();
+        if (mediaBackground != null) mediaBackground.close();
+        if (homeV2 != null) homeV2.destroy();
+        if (ytDock != null) ytDock.destroy();
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
         TvInputManager tim = (TvInputManager) getSystemService(TV_INPUT_SERVICE);
         if (tim != null) tim.unregisterCallback(inputCallback);
@@ -1419,12 +1523,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        if (allApps != null && allApps.isShowing() && allApps.onKey(event)) return true;
         // Vendor keys (TCL Netflix button, 4062) never reach the key services, only the focused window, so their
         // "hold:" entries run here too or nowhere. Only while resumed: onPause releases Home's holds, and a DOWN
         // taken after that would arm one nothing releases.
         if (resumed && event.getKeyCode() >= 1000 && RemoteKeys.handle(this, event, homeAppKeys.get(event.getKeyCode()),
                 homeHoldAppKeys.get(event.getKeyCode()))) return true;
         if (handleSettingsKey(event)) return true;
+        if (homeV2 != null) return homeV2.dispatchKey(event) || super.dispatchKeyEvent(event);
         if (holdOk(event)) return true;
         if (tileMenuEnabled && !reordering && openPopup == null && cardPrompt == null
                 && event.getKeyCode() == KeyEvent.KEYCODE_MENU) {
@@ -1645,7 +1751,64 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             return pos != RecyclerView.NO_POSITION && movingKey.equals(adapter.keyAt(pos)) ? 1f : 0.45f;
         }
         if (dockEditSlot >= 0 && pos >= 0 && pos < COLUMNS && pos != dockEditSlot) return 0.45f;
+        // Rows under the dock stay hidden until the dock opens upwards, then appear as it grows.
+        if (!singleRow && dockRow && pos >= COLUMNS) return Math.max(0f, Math.min(1f, (dockExpand - 0.2f) / 0.8f));
         return 1f;
+    }
+
+    /** 0 = only the dock row, 1 = the band reaches every edge and the rows below are shown. */
+    private float dockExpand;
+    private ValueAnimator dockExpandAnimator;
+    private float dockWide;
+    private ValueAnimator dockWideAnimator;
+
+    /** Second step: the band spreads to the full width of the screen. */
+    private void setDockWide(boolean wideOn) {
+        if (singleRow || !dockRow || dockDecoration == null) return;
+        float to = wideOn ? 1f : 0f;
+        if (dockWideAnimator != null) dockWideAnimator.cancel();
+        if (!animations || reducedMotion) {
+            dockWide = to;
+            dockDecoration.setWide(to);
+            grid.invalidate();
+            return;
+        }
+        dockWideAnimator = ValueAnimator.ofFloat(dockWide, to);
+        dockWideAnimator.setDuration(380);
+        dockWideAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator(1.8f));
+        dockWideAnimator.addUpdateListener(a -> {
+            dockWide = (Float) a.getAnimatedValue();
+            dockDecoration.setWide(dockWide);
+            grid.invalidate();
+        });
+        dockWideAnimator.start();
+    }
+
+    private void setDockExpanded(boolean expanded) {
+        if (singleRow || !dockRow || dockDecoration == null) return;
+        if (ytDock != null) ytDock.setPeeks(!expanded);
+        if (!expanded) setDockWide(false);
+        float to = expanded ? 1f : 0f;
+        if (dockExpandAnimator != null) dockExpandAnimator.cancel();
+        if (!animations || reducedMotion) {
+            applyDockExpand(to);
+            return;
+        }
+        dockExpandAnimator = ValueAnimator.ofFloat(dockExpand, to);
+        dockExpandAnimator.setDuration(expanded ? 420 : 260);
+        dockExpandAnimator.setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f));
+        dockExpandAnimator.addUpdateListener(a -> applyDockExpand((Float) a.getAnimatedValue()));
+        dockExpandAnimator.start();
+    }
+
+    private void applyDockExpand(float value) {
+        dockExpand = value;
+        dockDecoration.setExpand(value);
+        for (int i = 0; i < grid.getChildCount(); i++) {
+            View child = grid.getChildAt(i);
+            child.setAlpha(tileAlpha(grid.getChildAdapterPosition(child)));
+        }
+        grid.invalidate();
     }
 
     /** Ends the mode and saves the order if it changed since the mode started. */
@@ -1754,6 +1917,14 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     @SuppressWarnings("deprecation")
     public void onBackPressed() {
+        if (ytDock != null && ytDock.isShowing()) {
+            ytDock.back();
+            return;
+        }
+        if (homeV2 != null) {
+            homeV2.onBack();
+            return;
+        }
         // Home screen: Back goes nowhere, unless back_opens_clock is on.
         if (backOpensClock) startActivity(new Intent(this, ClockActivity.class));
     }
@@ -2426,14 +2597,22 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             // One row: Up leaves for the top bar, Down has nowhere to go, and Left/Right walk the whole row,
             // stopping at its two ends (the default focus search scrolls the row to the next tile).
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return false;
-            if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) return true;
+            // Down opens every app (the App library); Left/Right loop around the row without end.
+            if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                allApps.show();
+                return true;
+            }
             boolean forward = rtlAppGrid ? keyCode == KeyEvent.KEYCODE_DPAD_LEFT : keyCode == KeyEvent.KEYCODE_DPAD_RIGHT;
             int last = adapter.focusablePosition(count - 1);
             if (forward && position >= last) {
-                if (adapter.isLibraryAt(count)) focusLibrary();
+                focusTile(0);
                 return true;
             }
-            return !forward && position == 0;
+            if (!forward && position == 0) {
+                focusTile(count - 1);
+                return true;
+            }
+            return false;
         }
         // Horizontal: swallow the key at a row's ends so focus never wraps to the next row or
         // escapes up into the top bar. Mid-row moves fall through to the default focus search.
@@ -2445,14 +2624,33 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
             // In the dock, the last app is the row's end: the empty slots after it take no focus.
             int rowCount = position < COLUMNS ? Math.min(count, adapter.dockFilled()) : count;
-            return GridNavigation.atHorizontalEdge(position, rowCount, COLUMNS,
-                    rtlAppGrid, keyCode == KeyEvent.KEYCODE_DPAD_LEFT);
+            // Left/Right loop around the row without end.
+            boolean left = keyCode == KeyEvent.KEYCODE_DPAD_LEFT;
+            // Mode simple: past either end of the dock, YouTube slides in instead of looping round the apps.
+            if (ytDock != null && position < COLUMNS && ytDock.ready()
+                    && GridNavigation.atHorizontalEdge(position, rowCount, COLUMNS, rtlAppGrid, left)
+                    && ytDock.show(left ? -1 : 1)) {
+                return true;
+            }
+            if (GridNavigation.atHorizontalEdge(position, rowCount, COLUMNS, rtlAppGrid, left)) {
+                int rowStart = (position / COLUMNS) * COLUMNS;
+                int rowEnd = Math.min(rowStart + COLUMNS, rowCount) - 1;
+                boolean towardStart = left != rtlAppGrid;
+                int to = towardStart ? rowEnd : rowStart;
+                if (to != position && to >= 0) focusTile(to);
+                return true;
+            }
+            return false;
         }
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
             if (position < COLUMNS) return false;          // dock row: let focus move to the top bar
             target = position - COLUMNS;
+            if (target < COLUMNS) setDockExpanded(false);
+            else setDockWide(false);
         } else {
+            if (position < COLUMNS && count > COLUMNS) setDockExpanded(true);
             int lastRowStart = ((count - 1) / COLUMNS) * COLUMNS;
+            if (position >= COLUMNS) setDockWide(true);
             if (position >= lastRowStart) {
                 if (adapter.isLibraryAt(count)) focusLibrary();
                 return true;
@@ -3208,6 +3406,32 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         }
         btnInputs.setVisibility(any ? View.VISIBLE : View.GONE);
+    }
+
+    /** The intro video (media/intro.mp4), played once per boot the first time Home comes up. Keyed on
+     *  Settings.Global.BOOT_COUNT and committed before the video starts, so a failure never replays it. */
+    private boolean maybePlayIntro() {
+        java.io.File file = IntroActivity.file(this);
+        if (file == null || !file.isFile()) return false;
+        int boot = OpenOnStart.boot(this);
+        if (boot < 0) return false;
+        SharedPreferences prefs = getSharedPreferences(OpenOnStart.BOOT_PREFS, MODE_PRIVATE);
+        boolean wake = prefs.getBoolean("intro_wake", false);
+        if (wake) {
+            // PowerOutro sends Home just before it locks the screen: that resume is still the power-off, not the
+            // wake. Keep the flag for the resume after the wake-up instead of replaying the clip over the outro.
+            long at = prefs.getLong("intro_wake_at", 0);
+            android.os.PowerManager pmgr = (android.os.PowerManager) getSystemService(POWER_SERVICE);
+            if (SystemClock.elapsedRealtime() - at < 6000 || (pmgr != null && !pmgr.isInteractive())) return false;
+            if (!prefs.edit().putBoolean("intro_wake", false).commit()) return false;
+        } else {
+            if (prefs.getInt("intro_boot", -1) == boot) return false;
+            if (!prefs.edit().putInt("intro_boot", boot).commit()) return false;
+        }
+        Intent intro = new Intent(this, IntroActivity.class);
+        intro.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+        startActivity(intro);
+        return true;
     }
 
     /** boot_to_live_tv, or the Open on start app: the first time Home comes up after the TV starts, open that app

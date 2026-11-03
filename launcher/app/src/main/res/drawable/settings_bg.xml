@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Near black with a soft blue light from the top left, like the 5HC home. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FF0C0D11" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:centerX="0.12"
+                android:centerY="0.1"
+                android:gradientRadius="90%p"
+                android:startColor="#992A5A8C"
+                android:centerColor="#26193552"
+                android:endColor="#00000000" />
+        </shape>
+    </item>
+</layer-list>

@@ -354,6 +354,14 @@
                     android:drawableStart="@drawable/ic_settings"
                     android:nextFocusDown="@+id/grid" />
 
+                <!-- Launcher settings (home style and the rest), as the TV icon. -->
+                <TextView
+                    android:id="@+id/btnProfile"
+                    style="@style/TopButtonIcon"
+                    android:contentDescription="@string/v2_profile"
+                    android:drawableStart="@drawable/ic_tv_v2"
+                    android:nextFocusDown="@+id/grid" />
+
                 <TextView
                     android:id="@+id/btnLibraryTop"
                     style="@style/TopButtonIcon"
