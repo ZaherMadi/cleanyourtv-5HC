@@ -1,7 +1,7 @@
 # Box de référence : X88 Pro 13 (RK3528, Android 13)
 
 Ce dossier contient la configuration exacte de la box sur laquelle le fork 5HC a été construit et testé, et les
-scripts utilisés pour y arriver. Pour le launcher et les clés API, voir [LISEZMOI-5HC.md](../../LISEZMOI-5HC.md).
+scripts utilisés pour y arriver. Pour le launcher et les clés API, voir [README](../../README.md).
 
 > ⚠️ **Lis d'abord le [rapport de sécurité](RAPPORT-SECURITE-X88-PRO-13.md).** Cette box est vendue avec un démon
 > root caché, un ADB réseau ouvert sans authentification et plusieurs installateurs silencieux. Même nettoyée, ne t'y

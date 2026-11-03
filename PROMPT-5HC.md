@@ -13,7 +13,7 @@ celle sur laquelle il a été construit. Réponds-moi en français, simplement :
 
 1. `PROMPT.md` : la procédure de nettoyage du dépôt d'origine. **Ses règles de sécurité s'appliquent telles quelles**
    et passent avant tout ce qui suit.
-2. `LISEZMOI-5HC.md` : ce que le fork ajoute (deux accueils, volets YouTube / films et séries / sport, météo, intro,
+2. `README.md` : ce que le fork ajoute (deux accueils, volets YouTube / films et séries / sport, météo, intro,
    outro, veille vidéo) et comment on donne les clés API.
 3. `boxes/x88-pro-13/README.md` et `boxes/x88-pro-13/RAPPORT-SECURITE-X88-PRO-13.md` : la **configuration de
    référence**, avec tout ce qui a été changé sur la box d'origine et pourquoi.
@@ -29,7 +29,7 @@ celle sur laquelle il a été construit. Réponds-moi en français, simplement :
   qu'à une box `userdebug` où `su 0` marche, et seulement après une copie vérifiée (md5) du fichier d'origine. Sur
   une box `user` ou une TV de marque : tu les sautes, sans chercher à rooter.
 - **Mes clés API ne vont jamais dans un fichier** du dépôt, un commit ou un message public. Elles vont sur la box
-  avec la commande `am start … --es …` de `LISEZMOI-5HC.md`, et nulle part ailleurs.
+  avec la commande `am start … --es …` de `README.md`, et nulle part ailleurs.
 - **Aucune donnée qui m'identifie** dans ce que tu écris ou montres : pas d'IP, de nom de Wi-Fi, de numéro de série,
   d'adresse MAC, d'e-mail. Floute le nom du Wi-Fi sur les captures.
 - Si la box refuse quelque chose (désactivation refusée, installation bloquée, Android plus ancien que le `minSdk` 26
@@ -79,7 +79,7 @@ Pose-moi les questions dans un seul message, avec un choix par défaut pour chac
 
 - Quel accueil par défaut : *Mode simple* ou *Mode personnalisé* (on peut changer après) ?
 - Quels volets : YouTube, Films & séries, Sport, météo ? Ai-je déjà les clés (sinon, donne-moi le tutoriel de
-  `LISEZMOI-5HC.md` pour celles qui manquent) ?
+  `README.md` pour celles qui manquent) ?
 - Quelles apps désactiver, en une seule liste à cocher pour celles que la famille utilise (streaming, assistant
   vocal, Chromecast, mises à jour), comme le demande `PROMPT.md` ?
 - Intro, outro, veille vidéo : avec les vidéos 5HC de `boxes/x88-pro-13/media/`, les miennes, ou aucune ?

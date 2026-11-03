@@ -51,7 +51,7 @@ Click **Settings** for the TV's own settings. Hold OK on it for its menu:
 The launcher's own page has these rows, top to bottom:
 
 - **Change theme** (5HC fork), beside the current theme's preview: opens the screen that picks the Home
-  layout, Simple mode or Custom mode, then goes straight back to Home. See [LISEZMOI-5HC.md](../LISEZMOI-5HC.md).
+  layout, Simple mode or Custom mode, then goes straight back to Home. See [README](../README.md).
 - **Reorder apps**, only with `launcher_settings_button`, the same as the menu's.
 - **Apps per row** 4, 5, 6 or 7; **Rows below dock** 0 to 3, how many rows of tiles stay visible under the
   dock band; **Dock band opacity** 100%, 70%, 50% or 30%. The last two only do anything while the dock is
