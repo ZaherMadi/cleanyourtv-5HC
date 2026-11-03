@@ -17,10 +17,10 @@ La vidéo complète de 3 minutes : [docs/5hc/comparaison-avant-apres.mp4](docs/5
 
 ![La box d'origine](docs/5hc/gifs/1-box-origine.gif)
 
-Le launcher du fabricant, tel qu'il sort du carton. Constat fait sur cette box : **toutes ses données sont par défaut et
-périmées**. Les bandeaux sont des contenus statiques embarqués dans le firmware (bandes-annonces Netflix figées, des
-titres comme « Loving Adults » de 2022…), à jour seulement le jour de l'achat de la box, jamais rafraîchis ensuite, et
-l'ensemble n'est pas optimisé : lent, chargé de pubs et de services qui tournent en tâche de fond.
+Le launcher du fabricant, tel qu'il sort du carton. Constat fait sur cette box, achetée cette année : **ses données sont figées**. Les bandeaux sont des contenus statiques
+embarqués dans le firmware (bandes-annonces Netflix figées, des titres comme « Loving Adults » de 2022…). Ils étaient
+« à jour » à la mise en vente du modèle, pas à l'achat, et ne sont jamais rafraîchis ensuite. L'ensemble n'est pas non
+plus optimisé : lent, chargé de pubs et de services qui tournent en tâche de fond.
 
 ### 2 · CleanYourTV d'origine
 
@@ -63,12 +63,13 @@ Apps en cercles, « Récemment utilisées », rangées dans un ordre qui apprend
 2. [Installer](#installer)
 3. [Les clés API : tutoriels](#les-clés-api--tutoriels)
 4. [Donner les clés à la box](#donner-les-clés-à-la-box)
-5. [Quotas et requêtes](#quotas-et-requêtes)
-6. [Confidentialité](#confidentialité)
-7. [Pour développer (MCP)](#pour-développer-mcp)
-8. [Adapter à une autre box](#adapter-à-une-autre-box)
-9. [Où est quoi dans le code](#où-est-quoi-dans-le-code)
-10. [Crédits](#crédits)
+5. [Intro, outro, veille et fonds](#intro-outro-veille-et-fonds--les-changer-ou-les-couper)
+6. [Quotas et requêtes](#quotas-et-requêtes)
+7. [Confidentialité](#confidentialité)
+8. [Pour développer (MCP)](#pour-développer-mcp)
+9. [Adapter à une autre box](#adapter-à-une-autre-box)
+10. [Où est quoi dans le code](#où-est-quoi-dans-le-code)
+11. [Crédits](#crédits)
 
 ## Ce que le fork ajoute
 
@@ -167,6 +168,42 @@ adb shell am start -n com.gathin.tvhome/.MainActivity \
 - Pour retirer une clé, renvoie-la vide : `--es football_key ""`.
 - Les rangées se rechargent tout de suite avec la nouvelle clé.
 
+## Intro, outro, veille et fonds : les changer ou les couper
+
+L'intro (au démarrage et au réveil), l'outro (bouton power) et la veille sont de simples fichiers vidéo dans le dossier
+du launcher sur la box. **Le launcher n'a pas (encore) d'interrupteur à l'écran pour ça** : le réglage se fait depuis un
+PC relié à la box en ADB (`adb connect <IP-de-la-box>:5555`). Le launcher doit avoir été lancé une fois.
+
+| Fichier sur la box | Rôle |
+|---|---|
+| `intro.mp4` | Intro, jouée avec son après chaque démarrage et au réveil |
+| `outro.mp4` | Outro, jouée avec son quand on éteint avec le bouton power de la télécommande |
+| `idle.mp4` | Écran de veille vidéo (sans son, en boucle) |
+| `mine/` | Fonds d'écran (images et vidéos, dans l'ordre alphabétique des noms) |
+
+Tout est dans `/sdcard/Android/data/com.gathin.tvhome/files/media/`. Si un fichier est absent, la fonction se coupe
+toute seule et le bouton power éteint simplement la box.
+
+```sh
+D=/sdcard/Android/data/com.gathin.tvhome/files/media
+
+# Couper sans rien perdre (renommer), et remettre
+adb shell mv $D/intro.mp4 $D/intro.mp4.off
+adb shell mv $D/intro.mp4.off $D/intro.mp4
+adb shell mv $D/outro.mp4 $D/outro.mp4.off      # le bouton power éteint alors tout de suite
+
+# Remplacer par ta propre vidéo (MP4 H.264) : même nom de fichier
+adb push ma_video_intro.mp4 $D/intro.mp4
+adb push ma_video_outro.mp4 $D/outro.mp4
+adb push ma_veille.mp4      $D/idle.mp4
+adb push mon_fond.jpg       $D/mine/
+```
+
+Pas besoin de recompiler ni de redémarrer le launcher. Garde l'outro courte : le launcher éteint la box au bout de
+12 secondes quoi qu'il arrive. Les vidéos 5HC fournies sont dans [`boxes/x88-pro-13/media/`](boxes/x88-pro-13/media/).
+Sans PC, un gestionnaire de fichiers sur la box peut faire la même chose seulement s'il a accès à
+`Android/data`, ce qu'Android 13 interdit à la plupart d'entre eux.
+
 ## Quotas et requêtes
 
 Tout passe par un cache sur la box : revenir sur l'accueil relit le cache tant qu'il est récent, sans requête.
@@ -257,7 +294,7 @@ Tout est dans `launcher/app/src/main/java/com/gathin/tvhome/` :
 
 > *English: a fork of Gathin23/cleanyourtv with a Google TV style home, online rows (YouTube, movies/series, sport, weather)
 > and 5HC branding. Unlike upstream, its launcher uses the Internet permission, only for those rows and only with your own
-> API keys. The stock launcher of the box shipped static, outdated data (valid only on the day of purchase). The original
+> API keys. The stock launcher of the box shipped static, frozen data (only "current" when the model went on sale, never refreshed). The original
 > README follows below.*
 
 <br>
