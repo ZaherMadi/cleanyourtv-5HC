@@ -15,18 +15,27 @@ YouTube, films et séries, et sport, la météo, et toute la personnalisation 5H
 | ![Carrousel des volets](docs/5hc/mode-simple-carrousel-titre.jpg) | ![Football](docs/5hc/mode-perso-football.jpg) |
 | ![Choix du thème](docs/5hc/choix-du-theme.jpg) | ![Réglages du launcher](docs/5hc/reglages.jpg) |
 
+## Avant / après
+
+![Trois accueils pour la même box](docs/5hc/avant-apres.jpg)
+
+La même X88 Pro 13 en trois étapes : le launcher du fabricant, CleanYourTV d'origine, puis ce fork. La vidéo de
+3 minutes ([docs/5hc/comparaison-avant-apres.mp4](docs/5hc/comparaison-avant-apres.mp4)) montre chaque étape à la
+télécommande, les deux modes du fork et l'outro quand on éteint avec le bouton power. Le nom du Wi-Fi y est flouté.
+
 ## Sommaire
 
-1. [Ce que le fork ajoute](#ce-que-le-fork-ajoute)
-2. [Installer](#installer)
-3. [Les clés API : tutoriels](#les-clés-api--tutoriels)
-4. [Donner les clés à la box](#donner-les-clés-à-la-box)
-5. [Quotas et requêtes](#quotas-et-requêtes)
-6. [Confidentialité](#confidentialité)
-7. [Pour développer (MCP)](#pour-développer-mcp)
-8. [Adapter à une autre box](#adapter-à-une-autre-box)
-9. [Où est quoi dans le code](#où-est-quoi-dans-le-code)
-10. [Crédits](#crédits)
+1. [Avant / après](#avant--après)
+2. [Ce que le fork ajoute](#ce-que-le-fork-ajoute)
+3. [Installer](#installer)
+4. [Les clés API : tutoriels](#les-clés-api--tutoriels)
+5. [Donner les clés à la box](#donner-les-clés-à-la-box)
+6. [Quotas et requêtes](#quotas-et-requêtes)
+7. [Confidentialité](#confidentialité)
+8. [Pour développer (MCP)](#pour-développer-mcp)
+9. [Adapter à une autre box](#adapter-à-une-autre-box)
+10. [Où est quoi dans le code](#où-est-quoi-dans-le-code)
+11. [Crédits](#crédits)
 
 ## Ce que le fork ajoute
 

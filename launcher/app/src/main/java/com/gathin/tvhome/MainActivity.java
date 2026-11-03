@@ -101,6 +101,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         super.attachBaseContext(LauncherLocale.wrap(base));   // locale
     }
 
+    /**
+     * Android puts its own language back as the default on every configuration change Home handles itself (a remote
+     * or keyboard coming and going): the date line, which formats with the default locale, then turned English.
+     */
+    private void keepLocale() {
+        java.util.Locale l = LauncherLocale.parse(Config.load(this).locale);
+        if (l != null && !l.equals(java.util.Locale.getDefault())) java.util.Locale.setDefault(l);
+    }
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        keepLocale();
+    }
+
 
     private static final int LAUNCHER_SETTINGS_REQUEST = 42;
     /** Sent by QuickSettingsActivity: open Launcher settings from here so Home rebuilds when they close. */
@@ -1163,6 +1178,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     protected void onResume() {
         super.onResume();
         resumed = true;
+        keepLocale();
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
             recreate();
